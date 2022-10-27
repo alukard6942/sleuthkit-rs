@@ -10,7 +10,7 @@ use crate::fs_info::FsInfo;
 use crate::tchar::Tchar;
 use crate::vs_info::VsInfo;
 use std::fmt::Display;
-use crate::error::DResult;
+use crate::error::{DResult, Nullptr};
 
 
 #[derive(Debug)]
@@ -30,7 +30,7 @@ impl ImgInfo {
         };
 
         if ptr.is_null() {
-            return Err(format!("img: {} did not open", path))?;
+            Err(Nullptr::ImgOpen)?;
         }
 
         Ok(ImgInfo { inner: ptr, })
@@ -49,7 +49,7 @@ impl ImgInfo {
         };
 
         if ptr.is_null() {
-            Err("vs_info returned with null pointer")?
+            Err(Nullptr::VsOpen)?
         }
 
 
@@ -62,7 +62,7 @@ impl ImgInfo {
         };
 
         if ptr.is_null() {
-            Err("vs_info returned with null pointer")?
+            Err(Nullptr::FsOpen)?
         }
 
         Ok(FsInfo { inner : ptr, })

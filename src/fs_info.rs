@@ -9,7 +9,7 @@ use std::fmt::Display;
 use crate::bindigs::TSK_FS_INFO;
 use crate::dir::Dir;
 use crate::bindigs::*;
-use crate::error::DResult;
+use crate::error::{DResult, Nullptr};
 use crate::tchar::Tchar;
 
 
@@ -26,7 +26,7 @@ impl FsInfo {
         };
         
         if ptr.is_null() {
-            Err("null ptr")?;
+            Err(Nullptr::DirOpen)?;
         }
 
         Ok(Dir { inner: ptr, })
