@@ -14,6 +14,7 @@ fn main() {
         .layout_tests(false)
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))
         .generate_comments(true)
+        .clang_args(["-fretain-comments-from-system-headers","-fparse-all-comments"])
         .generate()
         .expect("Unable to generate bindings");
 

@@ -3,6 +3,8 @@
 #![allow(non_snake_case)]
 
 mod bind {
+    #![allow(unused)]
+
     include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 }
 

@@ -31,6 +31,18 @@ impl FsInfo {
 
         Ok(Dir { inner: ptr, })
     }
+
+    pub fn root(&self) -> DResult<Dir> {
+        let ptr = unsafe {
+            tsk_fs_dir_open_meta(self.inner, 0)
+        };
+
+        if ptr.is_null() {
+            Err(Nullptr::DirOpen)?;
+        }
+
+        Ok(Dir { inner: ptr, })
+    }
 }
 
 impl Drop for FsInfo {
@@ -46,22 +58,25 @@ impl Drop for FsInfo {
 #[cfg(test)]
 mod tests {
 
-    use crate::{img_info, dir::Dir};
-    use super::FsInfo;
+    use crate::{dir::Dir, img_info};
+        use super::FsInfo;
 
     pub fn new () -> FsInfo {
         let img = img_info::tests::new();
+
         img.fs_info().unwrap()
     }
 
     pub fn root () -> Dir {
-        let fs = new();
-        fs.open_dir("/").unwrap()
+        let img = img_info::tests::new();
+        let fs = img.fs_info().unwrap();
+
+        fs.root().unwrap()
     }
 
     #[test]
     fn open () {
-        new();
+      new();
     }
     
     #[test]

@@ -1,14 +1,14 @@
 
 use crate::bindigs::*;
+use std::str;
+use std::string::String;
 
-#[derive(Debug)]
+
+#[derive(Debug, Clone)]
 pub struct Tchar {
     pub inner:  *const TSK_TCHAR,
     buff: String,
 }
-
-use std::str;
-use std::string::String;
 
 impl From<String> for Tchar {
    fn from(s: String) -> Tchar {
@@ -27,29 +27,3 @@ impl From<Tchar> for String {
         val.buff
     }
 }
-
-// use std::ptr;
-// impl From<Tchar> for String {
-//     fn from(tchar : Tchar) -> String {
-//         let v =  tchar.inner as *const u8;
-//         let len: usize = unsafe {
-//
-//             let mut i: isize = 0;
-//             loop { 
-//                 let c = *v.offset(i);
-//                 if c == 0 { break; }
-//                 i += 1;
-//             };
-//
-//             i as usize
-//         };
-//
-//         let mut bff = Vec::with_capacity(len);
-//         unsafe {
-//             ptr::copy(v, bff.as_mut_ptr(), len);
-//             bff.set_len(len);
-//         }
-//
-//         String::from_utf8(bff).unwrap()
-//     }
-// }

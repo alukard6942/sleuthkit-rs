@@ -17,17 +17,13 @@ impl Drop for VsInfo {
 
 #[cfg(test)]
 mod tests {
-
     use crate::img_info;
-    use super::VsInfo;
-
-    pub fn new () -> VsInfo {
-        let img = img_info::tests::new();
-        img.vs_info().unwrap()
-    }
 
     #[test]
-    fn open () {
-        // new();
+    #[should_panic]
+    pub fn new () {
+        let img = img_info::tests::new();
+        let _vs = img.vs_info().unwrap();
     }
+
 }

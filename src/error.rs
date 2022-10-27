@@ -31,6 +31,11 @@ impl From<String> for TskError {
         TskError::Str(t)
     }
 }
+impl From<&str> for TskError {
+    fn from(t: &str) -> Self {
+        TskError::Str(t.to_string())
+    }
+}
 
 
 use std::error::Error;
