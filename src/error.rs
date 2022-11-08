@@ -14,11 +14,14 @@ pub enum Nullptr {
     FileOpen,
 }
 
+use std::str::Utf8Error;
+
 #[derive(Debug)]
 pub enum TskError {
     Nullptr(Nullptr),
     Dynamic(Box<dyn Error>),
-    Str(String),
+    Msg(String),
+    Cstr(Utf8Error),
 }
 
 impl From<Nullptr> for TskError {
@@ -26,14 +29,22 @@ impl From<Nullptr> for TskError {
         TskError::Nullptr(t)
     }
 }
+
 impl From<String> for TskError {
     fn from(t: String) -> Self {
-        TskError::Str(t)
+        TskError::Msg(t)
     }
 }
+
 impl From<&str> for TskError {
     fn from(t: &str) -> Self {
-        TskError::Str(t.to_string())
+        TskError::Msg(t.to_string())
+    }
+}
+
+impl From<Utf8Error> for TskError {
+    fn from(t: Utf8Error) -> Self {
+        TskError::Cstr(t)
     }
 }
 

@@ -1,5 +1,5 @@
 
-use crate::bindigs::*;
+use crate::bindings::*;
 
 
 #[derive(Debug)]

@@ -1,13 +1,14 @@
 extern crate bindgen;
 
-use std::env;
+// use std::env;
 use std::path::PathBuf;
 
 fn main() {
     // shared library.
     println!("cargo:rustc-link-lib=tsk");
 
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    // let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let out_path = PathBuf::from("src/");
 
     let bindings = bindgen::Builder::default()
         .header("/usr/local/include/tsk/libtsk.h")

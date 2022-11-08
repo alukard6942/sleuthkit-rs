@@ -5,7 +5,7 @@
  * Last Modified Date: 23.10.2022
  */
 
-use crate::bindigs::*;
+use crate::bindings::*;
 use crate::fs_info::FsInfo;
 use crate::tchar::Tchar;
 use crate::vs_info::VsInfo;

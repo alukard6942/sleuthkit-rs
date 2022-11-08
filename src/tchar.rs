@@ -1,5 +1,5 @@
 
-use crate::bindigs::*;
+use crate::bindings::*;
 use std::str;
 use std::string::String;
 

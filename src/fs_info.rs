@@ -6,9 +6,8 @@
  */
 
 use std::fmt::Display;
-use crate::bindigs::TSK_FS_INFO;
-use crate::dir::Dir;
-use crate::bindigs::*;
+use crate::entry::Dir;
+use crate::bindings::*;
 use crate::error::{DResult, Nullptr};
 use crate::tchar::Tchar;
 
@@ -58,8 +57,8 @@ impl Drop for FsInfo {
 #[cfg(test)]
 mod tests {
 
-    use crate::{dir::Dir, img_info};
-        use super::FsInfo;
+    use crate::{entry::Dir, img_info};
+    use super::FsInfo;
 
     pub fn new () -> FsInfo {
         let img = img_info::tests::new();
@@ -76,9 +75,9 @@ mod tests {
 
     #[test]
     fn open () {
-      new();
+        new();
     }
-    
+
     #[test]
     fn openroot () {
         root();
