@@ -1,4 +1,3 @@
-
 use super::dir;
 use super::file;
 
@@ -8,14 +7,8 @@ pub struct DirIter<'a> {
     pub parent: &'a dir::Dir,
 }
 
-#[derive(Debug)]
-pub enum DirEntry {
-    Dir(dir::Dir),
-    File(file::File),
-}
-
 impl Iterator for DirIter<'_> {
-    type Item = DirEntry;
+    type Item = file::File;
     fn next(&mut self) -> Option<Self::Item> {
         let e = self.parent.nth(self.count);
         self.count += 1;
