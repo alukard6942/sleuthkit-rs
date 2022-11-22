@@ -1,19 +1,19 @@
-/**
- * File: img_info.rs
- * Author: alukard <alukard6942@github>
- * Date: 23.10.2022
- * Last Modified Date: 23.10.2022
- */
 use crate::bindings::*;
 use crate::error::{DResult, Nullptr};
-use crate::fs_info::FsInfo;
+use crate::fs_info::{FsInfo, FsWrapper};
 use crate::tchar::Tchar;
 use crate::vs_info::VsInfo;
 use std::fmt::Display;
+use std::rc::Rc;
+
+#[derive(Debug)]
+pub struct ImgWrapper {
+    pub inner: *mut TSK_IMG_INFO,
+}
 
 #[derive(Debug)]
 pub struct ImgInfo {
-    pub inner: *mut TSK_IMG_INFO,
+    pub inner: Rc<ImgWrapper>,
 }
 
 impl ImgInfo {
@@ -26,16 +26,18 @@ impl ImgInfo {
             Err(Nullptr::ImgOpen)?;
         }
 
-        Ok(ImgInfo { inner: ptr })
+        Ok(ImgInfo {
+            inner: Rc::new(ImgWrapper { inner: ptr }),
+        })
     }
 
     pub fn itype(&self) -> String {
-        let itype = unsafe { (*self.inner).itype };
+        let itype = unsafe { (*self.inner.inner).itype };
 
         format!("{}", itype)
     }
     pub fn vs_info(&self) -> DResult<VsInfo> {
-        let ptr = unsafe { tsk_vs_open(self.inner, 0, TSK_VS_TYPE_ENUM_TSK_VS_TYPE_DETECT) };
+        let ptr = unsafe { tsk_vs_open(self.inner.inner, 0, TSK_VS_TYPE_ENUM_TSK_VS_TYPE_DETECT) };
 
         if ptr.is_null() {
             Err(Nullptr::VsOpen)?
@@ -45,18 +47,25 @@ impl ImgInfo {
     }
 
     pub fn fs_info(&self) -> DResult<FsInfo> {
-        let ptr = unsafe { tsk_fs_open_img(self.inner, 0, TSK_FS_TYPE_ENUM_TSK_FS_TYPE_DETECT) };
+        let ptr =
+            unsafe { tsk_fs_open_img(self.inner.inner, 0, TSK_FS_TYPE_ENUM_TSK_FS_TYPE_DETECT) };
 
         if ptr.is_null() {
             Err(Nullptr::FsOpen)?
         }
 
-        Ok(FsInfo { inner: ptr })
+        Ok(FsInfo {
+            inner: Rc::new(FsWrapper {
+                inner: ptr,
+                parent: Rc::clone(&self.inner),
+            }),
+        })
     }
 }
 
-impl Drop for ImgInfo {
+impl Drop for ImgWrapper {
     fn drop(&mut self) {
+        // println!("droping img");
         unsafe {
             tsk_img_close(self.inner);
         }

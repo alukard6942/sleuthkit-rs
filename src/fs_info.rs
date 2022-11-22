@@ -1,45 +1,60 @@
 use crate::bindings::*;
 use crate::entry::Dir;
 use crate::error::{DResult, Nullptr};
+use crate::img_info::ImgWrapper;
 use crate::tchar::Tchar;
-/**
- * File: fs_info.rs
- * Author: alukard <alukard6942@github>
- * Date: 23.10.2022
- * Last Modified Date: 23.10.2022
- */
 use std::fmt::Display;
+use std::rc::Rc;
+
+use crate::entry::DirWrapper;
+
+#[derive(Debug)]
+pub struct FsWrapper {
+    pub inner: *mut TSK_FS_INFO,
+    pub parent: Rc<ImgWrapper>,
+}
 
 #[derive(Debug)]
 pub struct FsInfo {
-    pub inner: *mut TSK_FS_INFO,
+    pub inner: Rc<FsWrapper>,
 }
 
 impl FsInfo {
     pub fn open_dir<T: Into<Tchar> + Display + Clone>(&self, path: T) -> DResult<Dir> {
         let t: Tchar = path.into();
-        let ptr = unsafe { tsk_fs_dir_open(self.inner, t.inner) };
+        let ptr = unsafe { tsk_fs_dir_open(self.inner.inner, t.inner) };
 
         if ptr.is_null() {
             Err(Nullptr::DirOpen)?;
         }
 
-        Ok(Dir { inner: ptr })
+        Ok(Dir {
+            inner: Rc::new(DirWrapper {
+                inner: ptr,
+                parent: self.inner.clone(),
+            }),
+        })
     }
 
     pub fn root(&self) -> DResult<Dir> {
-        let ptr = unsafe { tsk_fs_dir_open_meta(self.inner, 0) };
+        let ptr = unsafe { tsk_fs_dir_open_meta(self.inner.inner, 0) };
 
         if ptr.is_null() {
             Err(Nullptr::DirOpen)?;
         }
 
-        Ok(Dir { inner: ptr })
+        Ok(Dir {
+            inner: Rc::new(DirWrapper {
+                inner: ptr,
+                parent: self.inner.clone(),
+            }),
+        })
     }
 }
 
-impl Drop for FsInfo {
+impl Drop for FsWrapper {
     fn drop(&mut self) {
+        // println!("droping fs");
         unsafe {
             tsk_fs_close(self.inner);
         }
@@ -47,7 +62,7 @@ impl Drop for FsInfo {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
 
     use super::FsInfo;
     use crate::{entry::Dir, img_info};
@@ -67,7 +82,9 @@ mod tests {
 
     #[test]
     fn open() {
-        new();
+        let f = new();
+
+        f.root().unwrap();
     }
 
     #[test]

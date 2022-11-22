@@ -1,10 +1,3 @@
-/**
- * File: error.rs
- * Author: xkoval18 <xkoval18@github>
- * Date: 20.10.2022
- * Last Modified Date: 20.10.2022
- */
-
 #[derive(Debug)]
 pub enum Nullptr {
     ImgOpen,
@@ -14,6 +7,8 @@ pub enum Nullptr {
     FileOpen,
 }
 
+use std::ffi::CStr;
+use std::fmt::Display;
 use std::str::Utf8Error;
 
 #[derive(Debug)]
@@ -48,7 +43,22 @@ impl From<Utf8Error> for TskError {
     }
 }
 
+impl Display for TskError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use crate::bindings::tsk_error_get;
+        use std::fmt::Error;
+
+        let s = unsafe { CStr::from_ptr(tsk_error_get()) };
+
+        let st = s.to_str();
+
+        if st.is_err() {
+            return Err(Error);
+        }
+
+        write!(f, "{}", st.unwrap())
+    }
+}
 
 use std::error::Error;
 pub type DResult<_T> = Result<_T, TskError>;
-

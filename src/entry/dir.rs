@@ -1,28 +1,28 @@
-/**
- * File: dir.rs
- * Author: alukard <alukard6942@github>
- * Date: 23.10.2022
- * Last Modified Date: 23.10.2022
- */
-
 use crate::bindings::*;
 use crate::error::DResult;
+use crate::fs_info::FsWrapper;
 use std::ffi::CStr;
 use std::fmt::Display;
+use std::rc::Rc;
 
 use super::file::File;
 use super::helpers::*;
 
-
-#[derive(Debug)]
-pub struct Dir {
+#[derive(Debug, Clone)]
+pub struct DirWrapper {
     pub inner: *mut TSK_FS_DIR,
+    pub parent: Rc<FsWrapper>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Dir {
+    pub inner: Rc<DirWrapper>,
 }
 
 impl Dir {
     pub fn name_of(&self, dx: usize) -> Result<&str, std::str::Utf8Error> {
         let tmp = unsafe {
-            let ptr = *tsk_fs_dir_get_name(self.inner, dx);
+            let ptr = *tsk_fs_dir_get_name(self.inner.inner, dx);
             CStr::from_ptr(ptr.name)
         };
         tmp.to_str()
@@ -31,10 +31,14 @@ impl Dir {
     pub fn name(&self) -> DResult<&str> {
         let s = unsafe {
             CStr::from_ptr({
-                let inner = (*self.inner).fs_file;
-                if inner.is_null() {Err("fs_file")?}
+                let inner = (*self.inner.inner).fs_file;
+                if inner.is_null() {
+                    Err("fs_file")?
+                }
                 let name = (*inner).name;
-                if name.is_null() {Err("name")?}
+                if name.is_null() {
+                    Err("name is null")?
+                }
                 (*name).name
             })
         };
@@ -42,21 +46,22 @@ impl Dir {
         Ok(s.to_str()?)
     }
 
-    pub fn iter(&self) -> DirIter<'_> {
-        DirIter { count: 0, parent: self }
+    pub fn iter(&self) -> DirIter {
+        DirIter {
+            count: 0,
+            parent: (*self).clone(),
+        }
     }
 
     pub fn nth(&self, i: usize) -> Option<File> {
-        let file = unsafe {
-            tsk_fs_dir_get(self.inner, i)
-        };
+        let file = unsafe { tsk_fs_dir_get(self.inner.inner, i) };
 
         if file.is_null() {
             None
-        }
-        else{
+        } else {
             Some(File {
                 inner: file,
+                parent: Rc::clone(&self.inner.parent),
             })
         }
     }
@@ -64,7 +69,6 @@ impl Dir {
 
 impl Display for Dir {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-
         let m = match self.name() {
             Ok(it) => it,
             Err(_) => return Err(std::fmt::Error),
@@ -74,29 +78,33 @@ impl Display for Dir {
     }
 }
 
-impl Drop for Dir {
+impl Drop for DirWrapper {
     fn drop(&mut self) {
-        unsafe {
-            tsk_fs_dir_close(self.inner)
-        }
+        // println!("droping dir");
+        unsafe { tsk_fs_dir_close(self.inner) }
     }
 }
-
 
 #[cfg(test)]
 mod tests {
     use crate::img_info;
 
-    #[test]
-    fn bla() {
-    }
+    use super::*;
 
     #[test]
-    fn name_of(){
+    fn bla() {}
+
+    fn root() -> Dir {
         let img = img_info::tests::new();
         let fs = img.fs_info().unwrap();
         let root = fs.root().unwrap();
 
+        root
+    }
+
+    #[test]
+    fn name_of() {
+        let root = root();
         let name = root.name_of(0).unwrap();
 
         assert_eq!(name, ".");
@@ -104,10 +112,8 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn root_has_name(){
-        let img = img_info::tests::new();
-        let fs = img.fs_info().unwrap();
-        let root = fs.root().unwrap();
+    fn root_has_name() {
+        let root = root();
 
         let name = root.name().unwrap();
 
@@ -115,23 +121,17 @@ mod tests {
     }
 
     #[test]
-    fn a_is_dir(){
-        let img = img_info::tests::new();
-        let fs = img.fs_info().unwrap();
-        let root = fs.root().unwrap();
+    fn a_is_dir() {
+        let root = root();
 
         let a = root.nth(2).unwrap();
 
-        assert!({ 
-            a.is_dir()
-        });
+        assert!({ a.is_dir() });
     }
 
     #[test]
     fn iterator() {
-        let img = img_info::tests::new();
-        let fs = img.fs_info().unwrap();
-        let root = fs.root().unwrap();
+        let root = root();
 
         let mut buffer = String::new();
 
@@ -142,5 +142,23 @@ mod tests {
 
         assert_eq!(buffer, "...AGPL_3_0.TXT$OrphanFiles")
     }
-}
 
+    #[test]
+    fn intoiter() {
+        let root = root();
+        let mut buffer = String::new();
+
+        for f in &root {
+            let name = f.name().unwrap();
+            buffer += name;
+        }
+        assert_eq!(buffer, "...AGPL_3_0.TXT$OrphanFiles");
+        buffer.clear();
+
+        for f in &root {
+            let name = f.name().unwrap();
+            buffer += name;
+        }
+        assert_eq!(buffer, "...AGPL_3_0.TXT$OrphanFiles")
+    }
+}
