@@ -61,4 +61,4 @@ impl Display for TskError {
 }
 
 use std::error::Error;
-pub type DResult<_T> = Result<_T, TskError>;
+pub type TskResult<_T> = Result<_T, TskError>;

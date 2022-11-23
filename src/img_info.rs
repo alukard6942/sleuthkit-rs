@@ -1,5 +1,5 @@
 use crate::bindings::*;
-use crate::error::{DResult, Nullptr};
+use crate::error::{Nullptr, TskResult};
 use crate::fs_info::{FsInfo, FsWrapper};
 use crate::tchar::Tchar;
 use crate::vs_info::VsInfo;
@@ -17,7 +17,7 @@ pub struct ImgInfo {
 }
 
 impl ImgInfo {
-    pub fn new<T: Into<Tchar> + Display + Clone>(path: T) -> DResult<Self> {
+    pub fn new<T: Into<Tchar> + Display + Clone>(path: T) -> TskResult<Self> {
         let tchar: Tchar = path.clone().into();
         let ptr =
             unsafe { tsk_img_open_sing(tchar.inner, TSK_IMG_TYPE_ENUM_TSK_IMG_TYPE_DETECT, 0) };
@@ -36,7 +36,7 @@ impl ImgInfo {
 
         format!("{}", itype)
     }
-    pub fn vs_info(&self) -> DResult<VsInfo> {
+    pub fn vs_info(&self) -> TskResult<VsInfo> {
         let ptr = unsafe { tsk_vs_open(self.inner.inner, 0, TSK_VS_TYPE_ENUM_TSK_VS_TYPE_DETECT) };
 
         if ptr.is_null() {
@@ -46,7 +46,7 @@ impl ImgInfo {
         Ok(VsInfo { inner: ptr })
     }
 
-    pub fn fs_info(&self) -> DResult<FsInfo> {
+    pub fn fs_info(&self) -> TskResult<FsInfo> {
         let ptr =
             unsafe { tsk_fs_open_img(self.inner.inner, 0, TSK_FS_TYPE_ENUM_TSK_FS_TYPE_DETECT) };
 

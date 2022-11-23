@@ -1,5 +1,5 @@
 use crate::bindings::*;
-use crate::error::DResult;
+use crate::error::TskResult;
 use crate::fs_info::FsWrapper;
 use std::ffi::CStr;
 use std::fmt::Display;
@@ -28,7 +28,7 @@ impl Dir {
         tmp.to_str()
     }
 
-    pub fn name(&self) -> DResult<&str> {
+    pub fn name(&self) -> TskResult<&str> {
         let s = unsafe {
             CStr::from_ptr({
                 let inner = (*self.inner.inner).fs_file;

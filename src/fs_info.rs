@@ -1,6 +1,6 @@
 use crate::bindings::*;
 use crate::entry::Dir;
-use crate::error::{DResult, Nullptr};
+use crate::error::{Nullptr, TskResult};
 use crate::img_info::ImgWrapper;
 use crate::tchar::Tchar;
 use std::fmt::Display;
@@ -20,7 +20,7 @@ pub struct FsInfo {
 }
 
 impl FsInfo {
-    pub fn open_dir<T: Into<Tchar> + Display + Clone>(&self, path: T) -> DResult<Dir> {
+    pub fn open_dir<T: Into<Tchar> + Display + Clone>(&self, path: T) -> TskResult<Dir> {
         let t: Tchar = path.into();
         let ptr = unsafe { tsk_fs_dir_open(self.inner.inner, t.inner) };
 
@@ -36,7 +36,7 @@ impl FsInfo {
         })
     }
 
-    pub fn root(&self) -> DResult<Dir> {
+    pub fn root(&self) -> TskResult<Dir> {
         let ptr = unsafe { tsk_fs_dir_open_meta(self.inner.inner, 0) };
 
         if ptr.is_null() {
