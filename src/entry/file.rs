@@ -1,24 +1,62 @@
 use super::{dir::Dir, DirWrapper};
-use crate::{bindings::*, fs_info::FsWrapper};
+use crate::{bindings::*, error::TskResult, fs_info::FsWrapper};
 use std::{ffi::CStr, fmt::Display, rc::Rc};
 
 #[derive(Debug)]
-pub struct File {
+pub struct FileWrapper {
     pub inner: *mut TSK_FS_FILE,
+}
+
+#[derive(Debug)]
+pub struct File {
+    pub inner: Rc<FileWrapper>,
     pub parent: Rc<FsWrapper>,
 }
 
 impl File {
-    pub fn name(&self) -> Result<&str, std::str::Utf8Error> {
-        let s = unsafe { CStr::from_ptr((*(*self.inner).name).name) };
+    pub fn bytes(&self, buffer: &mut Vec<u8>) -> Option<usize> {
+        let size = unsafe {
+            tsk_fs_file_read(
+                self.inner.inner,
+                0,
+                buffer.as_mut_ptr() as *mut i8,
+                buffer.capacity(),
+                TSK_FS_FILE_READ_FLAG_ENUM_TSK_FS_FILE_READ_FLAG_NONE,
+            )
+        };
+        if size < 0 {
+            return None;
+        }
 
-        s.to_str()
+        unsafe {
+            buffer.set_len(size as usize);
+        }
+
+        Some(size as usize)
+    }
+
+    pub fn name(&self) -> TskResult<&str> {
+        let s = unsafe {
+            CStr::from_ptr({
+                let inner = self.inner.inner;
+                if inner.is_null() {
+                    Err("fs_file")?
+                }
+                let name = (*inner).name;
+                if name.is_null() {
+                    Err("name is null")?
+                }
+                (*name).name
+            })
+        };
+
+        Ok(s.to_str()?)
     }
 
     pub fn is_file(&self) -> bool {
         let meta = unsafe {
             // the field name is type but that happens to be reserved by rust
-            (*(*self.inner).meta).type_
+            (*(*self.inner.inner).meta).type_
         };
 
         // lol no cast from u32 to bool pathetic
@@ -30,7 +68,7 @@ impl File {
      */
     pub fn is_dot(&self) -> bool {
         unsafe {
-            let ptr = (*(*self.inner).name).name;
+            let ptr = (*(*self.inner.inner).name).name;
             if ptr.is_null() {
                 return false;
             }
@@ -55,7 +93,7 @@ impl File {
             return None;
         }
 
-        let faddr = unsafe { (*(*self.inner).meta).addr };
+        let faddr = unsafe { (*(*self.inner.inner).meta).addr };
 
         let f = unsafe { tsk_fs_dir_open_meta(self.parent.inner, faddr) };
 
@@ -76,15 +114,13 @@ impl File {
             return None;
         }
 
-        let faddr = unsafe { (*(*self.inner).meta).addr };
+        let faddr = unsafe { (*(*self.inner.inner).meta).addr };
 
         let f = unsafe { tsk_fs_dir_open_meta(self.parent.inner, faddr) };
 
         if f.is_null() {
             return None;
         }
-
-        self.inner = 0 as *mut TSK_FS_FILE;
 
         Some(Dir {
             inner: Rc::new(DirWrapper {
@@ -106,7 +142,7 @@ impl Display for File {
     }
 }
 
-impl Drop for File {
+impl Drop for FileWrapper {
     fn drop(&mut self) {
         unsafe {
             if !self.inner.is_null() {
@@ -119,6 +155,8 @@ impl Drop for File {
 
 #[cfg(test)]
 mod tests {
+    use std::string;
+
     use crate::{entry::Dir, img_info};
 
     #[test]
@@ -138,5 +176,41 @@ mod tests {
                 println!("{:?}", d.name());
             }
         }
+    }
+
+    #[test]
+    pub fn bytestest() {
+        let r = img_info::ImgInfo::new("testData/ntfs.img")
+            .unwrap()
+            .fs_info()
+            .unwrap()
+            .root()
+            .unwrap();
+
+        let file = {
+            let mut file = None;
+            for f in &r {
+                if f.name().unwrap().contains("pdf") {
+                    file = Some(f);
+                    break;
+                }
+            }
+
+            file.unwrap()
+        };
+
+        println!("file {:?}", file.name());
+
+        let mut buffer = Vec::with_capacity(1024);
+        let size = file.bytes(&mut buffer);
+        println!("size {:?}", size);
+
+        let pdfsig = ['%' as u8, 'P' as u8, 'D' as u8, 'F' as u8];
+        let filesig = buffer.get(0..4).unwrap();
+
+        println!("signacure {:?}", filesig);
+        println!("pdfsingcr {:?}", pdfsig);
+
+        assert_eq!(filesig, pdfsig);
     }
 }

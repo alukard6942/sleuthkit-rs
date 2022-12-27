@@ -37,7 +37,7 @@ impl FsInfo {
     }
 
     pub fn root(&self) -> TskResult<Dir> {
-        let ptr = unsafe { tsk_fs_dir_open_meta(self.inner.inner, 0) };
+        let ptr = unsafe { tsk_fs_dir_open_meta(self.inner.inner, (*self.inner.inner).root_inum) };
 
         if ptr.is_null() {
             Err(Nullptr::DirOpen)?;

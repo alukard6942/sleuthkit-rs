@@ -5,7 +5,7 @@ use std::ffi::CStr;
 use std::fmt::Display;
 use std::rc::Rc;
 
-use super::file::File;
+use super::file::{File, FileWrapper};
 use super::helpers::*;
 
 #[derive(Debug, Clone)]
@@ -60,7 +60,7 @@ impl Dir {
             None
         } else {
             Some(File {
-                inner: file,
+                inner: Rc::new(FileWrapper { inner: file }),
                 parent: Rc::clone(&self.inner.parent),
             })
         }

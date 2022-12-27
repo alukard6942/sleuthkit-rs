@@ -2,7 +2,8 @@ use crate::bindings::*;
 use crate::error::{Nullptr, TskResult};
 use crate::fs_info::{FsInfo, FsWrapper};
 use crate::tchar::Tchar;
-use crate::vs_info::VsInfo;
+use crate::vs_info::{VsInfo, VsWrapper};
+use std::ffi::CStr;
 use std::fmt::Display;
 use std::rc::Rc;
 
@@ -18,7 +19,7 @@ pub struct ImgInfo {
 
 impl ImgInfo {
     pub fn new<T: Into<Tchar> + Display + Clone>(path: T) -> TskResult<Self> {
-        let tchar: Tchar = path.clone().into();
+        let tchar: Tchar = path.into();
         let ptr =
             unsafe { tsk_img_open_sing(tchar.inner, TSK_IMG_TYPE_ENUM_TSK_IMG_TYPE_DETECT, 0) };
 
@@ -31,10 +32,12 @@ impl ImgInfo {
         })
     }
 
-    pub fn itype(&self) -> String {
+    pub fn desc(&self) -> String {
         let itype = unsafe { (*self.inner.inner).itype };
 
-        format!("{}", itype)
+        let s = unsafe { CStr::from_ptr(tsk_img_type_todesc(itype)) };
+
+        format!("{}", s.to_str().unwrap())
     }
     pub fn vs_info(&self) -> TskResult<VsInfo> {
         let ptr = unsafe { tsk_vs_open(self.inner.inner, 0, TSK_VS_TYPE_ENUM_TSK_VS_TYPE_DETECT) };
@@ -43,7 +46,9 @@ impl ImgInfo {
             Err(Nullptr::VsOpen)?
         }
 
-        Ok(VsInfo { inner: ptr })
+        Ok(VsInfo {
+            inner: Rc::new(VsWrapper { inner: ptr }),
+        })
     }
 
     pub fn fs_info(&self) -> TskResult<FsInfo> {
@@ -77,7 +82,7 @@ pub mod tests {
     use crate::img_info::ImgInfo;
 
     pub fn new() -> ImgInfo {
-        let arg = "./test.iso";
+        let arg = "testData/test.iso";
         ImgInfo::new(arg).unwrap()
     }
 
@@ -89,6 +94,6 @@ pub mod tests {
     #[test]
     fn itype() {
         let img = new();
-        let _t = img.itype();
+        let _t = img.desc();
     }
 }
