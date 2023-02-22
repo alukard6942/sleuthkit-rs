@@ -6,6 +6,8 @@
  */
 mod bindings;
 
+mod tests;
+
 pub mod error;
 pub mod fs_info;
 pub mod img_info;

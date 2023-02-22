@@ -11,7 +11,7 @@ fn main() {
     let out_path = PathBuf::from("src/bindings");
 
     let bindings = bindgen::Builder::default()
-        .header("/usr/local/include/tsk/libtsk.h")
+        .header("wrapper.h")
         .layout_tests(false)
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))
         .generate_comments(true)

@@ -1,6 +1,6 @@
 use super::{dir::Dir, DirWrapper};
 use crate::{bindings::*, error::TskResult, fs_info::FsWrapper};
-use std::{ffi::CStr, fmt::Display, rc::Rc};
+use std::{ffi::CStr, fmt::Display, rc::Rc, usize};
 
 #[derive(Debug)]
 pub struct FileWrapper {
@@ -14,6 +14,45 @@ pub struct File {
 }
 
 impl File {
+    pub fn contents(&self) -> Vec<u8> {
+        // read file kilobyte by kilobyte
+        // todo: optimalizacion this seams wrong
+        let step = 1024;
+        let mut size = 0;
+        let mut buffer = Vec::with_capacity(step as usize);
+
+        loop {
+            let read = unsafe {
+                tsk_fs_file_read(
+                    self.inner.inner,
+                    size as i64,
+                    (buffer.as_mut_ptr() as *mut i8).add(size as usize),
+                    step as usize,
+                    TSK_FS_FILE_READ_FLAG_ENUM_TSK_FS_FILE_READ_FLAG_NONE,
+                )
+            };
+
+            if read == -1 {
+                return Vec::new();
+            }
+
+            size += read;
+
+            // basecase
+            if read < step {
+                unsafe {
+                    buffer.set_len(size as usize);
+                }
+                break;
+            }
+
+            buffer.reserve(step as usize);
+        }
+
+        buffer
+    }
+
+    // todo: does this makes actualy sence? can this ever return none?
     pub fn bytes(&self, buffer: &mut Vec<u8>) -> Option<usize> {
         let size = unsafe {
             tsk_fs_file_read(
@@ -73,7 +112,7 @@ impl File {
                 return false;
             }
 
-            // viz macro
+            // viz macro from tsk
             (*ptr == '.' as i8)
                 && (((*ptr.add(1) == '.' as i8) && (*ptr.add(2) == '\0' as i8))
                     || (*ptr.add(1) == '\0' as i8))
@@ -88,6 +127,7 @@ impl File {
         self.is_dir() && !self.is_dot()
     }
 
+    // None for . and ..
     pub fn to_subdir(&self) -> Option<Dir> {
         if !self.is_subdir() {
             return None;
@@ -109,8 +149,8 @@ impl File {
         })
     }
 
-    pub fn to_dir(mut self) -> Option<Dir> {
-        if self.is_file() {
+    pub fn to_dir(&self) -> Option<Dir> {
+        if !self.is_dir() {
             return None;
         }
 

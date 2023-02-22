@@ -18,7 +18,7 @@ fn extract_file() {
     let file = {
         let mut file = None;
         for f in &dir {
-            if f.name().unwrap() == "text.txt" {
+            if f.name().unwrap() == "test.txt" {
                 file = Some(f);
             }
         }
@@ -26,7 +26,7 @@ fn extract_file() {
         file.unwrap()
     };
 
-    let text = "";
+    let text = String::from_utf8(file.contents()).unwrap();
 
     assert_eq!(text, "hello word this is me!\nfuck you.\n");
 }
