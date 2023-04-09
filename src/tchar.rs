@@ -10,6 +10,12 @@ pub struct Tchar {
     buff: String,
 }
 
+impl Tchar {
+    pub fn is_empty(&self) -> bool {
+        self.buff.is_empty()
+    }
+}
+
 impl From<String> for Tchar {
    fn from(s: String) -> Tchar {
        Tchar {inner: s.as_ptr() as *const TSK_TCHAR, buff: s}

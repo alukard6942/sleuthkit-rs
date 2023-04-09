@@ -4,7 +4,7 @@
  * Date: 20.10.2022
  * Last Modified Date: 20.10.2022
  */
-use crate::{entry::Dir, error::TskResult, img_info::ImgInfo};
+use crate::{entry::Dir, error::TskResult, ImgInfo};
 
 #[test]
 fn extract_file() {

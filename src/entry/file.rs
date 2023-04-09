@@ -1,5 +1,9 @@
 use super::{dir::Dir, DirWrapper};
-use crate::{bindings::*, error::TskResult, fs_info::FsWrapper};
+use crate::{
+    bindings::*,
+    error::{TskError, TskResult},
+    fs_info::FsWrapper,
+};
 use std::{ffi::CStr, fmt::Display, rc::Rc, usize};
 
 #[derive(Debug)]
@@ -7,46 +11,66 @@ pub struct FileWrapper {
     pub inner: *mut TSK_FS_FILE,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct File {
     pub inner: Rc<FileWrapper>,
     pub parent: Rc<FsWrapper>,
 }
 
+pub struct Meta {
+    pub crate_time: i64,
+    pub last_modified_time: i64,
+    pub last_acces_time: i64,
+}
+
 impl File {
+    pub fn meta(&self) -> TskResult<Meta> {
+        let meta = unsafe {
+            // the field name is type but that happens to be reserved by rust
+            let meta = (*self.inner.inner).meta;
+            if meta.is_null() {
+                return Err(TskError::Nullptr(crate::error::Nullptr::Meta));
+            }
+            *meta
+        };
+
+        Ok(Meta {
+            crate_time: meta.atime,
+            last_modified_time: meta.ctime,
+            last_acces_time: meta.crtime,
+        })
+    }
+
+    pub fn size(&self) -> usize {
+        let meta = unsafe { (*self.inner.inner).meta };
+        if meta.is_null() {
+            return 0;
+        }
+        let len = unsafe { (*meta).size } as usize;
+
+        len
+    }
+
     pub fn contents(&self) -> Vec<u8> {
-        // read file kilobyte by kilobyte
-        // todo: optimalizacion this seams wrong
-        let step = 1024;
-        let mut size = 0;
-        let mut buffer = Vec::with_capacity(step as usize);
+        let len = self.size();
+        let mut buffer = Vec::with_capacity(len);
 
-        loop {
-            let read = unsafe {
-                tsk_fs_file_read(
-                    self.inner.inner,
-                    size as i64,
-                    (buffer.as_mut_ptr() as *mut i8).add(size as usize),
-                    step as usize,
-                    TSK_FS_FILE_READ_FLAG_ENUM_TSK_FS_FILE_READ_FLAG_NONE,
-                )
-            };
+        let read = unsafe {
+            tsk_fs_file_read(
+                self.inner.inner,
+                0,
+                buffer.as_mut_ptr() as *mut i8,
+                len,
+                TSK_FS_FILE_READ_FLAG_ENUM_TSK_FS_FILE_READ_FLAG_NOID,
+            )
+        };
 
-            if read == -1 {
-                return Vec::new();
-            }
+        if read == -1 {
+            return Vec::new();
+        }
 
-            size += read;
-
-            // basecase
-            if read < step {
-                unsafe {
-                    buffer.set_len(size as usize);
-                }
-                break;
-            }
-
-            buffer.reserve(step as usize);
+        unsafe {
+            buffer.set_len(len);
         }
 
         buffer
@@ -78,9 +102,6 @@ impl File {
         let s = unsafe {
             CStr::from_ptr({
                 let inner = self.inner.inner;
-                if inner.is_null() {
-                    Err("fs_file")?
-                }
                 let name = (*inner).name;
                 if name.is_null() {
                     Err("name is null")?
@@ -95,7 +116,12 @@ impl File {
     pub fn is_file(&self) -> bool {
         let meta = unsafe {
             // the field name is type but that happens to be reserved by rust
-            (*(*self.inner.inner).meta).type_
+            let meta = (*self.inner.inner).meta;
+            if meta.is_null() {
+                return true;
+            }
+            let typ = (*meta).type_;
+            typ
         };
 
         // lol no cast from u32 to bool pathetic
@@ -145,6 +171,7 @@ impl File {
             inner: Rc::new(DirWrapper {
                 inner: f,
                 parent: Rc::clone(&self.parent),
+                file: Some(self.clone()),
             }),
         })
     }
@@ -166,6 +193,7 @@ impl File {
             inner: Rc::new(DirWrapper {
                 inner: f,
                 parent: Rc::clone(&self.parent),
+                file: Some(self.clone()),
             }),
         })
     }
@@ -208,13 +236,27 @@ mod tests {
             root
         };
 
-        println!("no droping jet");
-
         for f in &root {
             println!("{:?}", f.name());
             if let Some(d) = f.to_dir() {
                 println!("{:?}", d.name());
             }
+        }
+    }
+
+    #[test]
+    fn contents_test() {
+        let r = img_info::ImgInfo::new("testData/ntfs.img")
+            .unwrap()
+            .fs_info()
+            .unwrap()
+            .root()
+            .unwrap();
+
+        for f in &r {
+            // let c = f.contents();
+            // println!("{}", String::from_utf8(c).unwrap());
+            println!("{:?}", ());
         }
     }
 

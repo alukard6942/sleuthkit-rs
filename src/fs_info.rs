@@ -22,6 +22,9 @@ pub struct FsInfo {
 impl FsInfo {
     pub fn open_dir<T: Into<Tchar> + Display + Clone>(&self, path: T) -> TskResult<Dir> {
         let t: Tchar = path.into();
+        if t.is_empty() {
+            return Err(crate::error::TskError::Str("empty path"));
+        }
         let ptr = unsafe { tsk_fs_dir_open(self.inner.inner, t.inner) };
 
         if ptr.is_null() {
@@ -32,6 +35,7 @@ impl FsInfo {
             inner: Rc::new(DirWrapper {
                 inner: ptr,
                 parent: self.inner.clone(),
+                file: None,
             }),
         })
     }
@@ -47,6 +51,7 @@ impl FsInfo {
             inner: Rc::new(DirWrapper {
                 inner: ptr,
                 parent: self.inner.clone(),
+                file: None,
             }),
         })
     }

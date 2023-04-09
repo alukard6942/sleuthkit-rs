@@ -12,6 +12,7 @@ use super::helpers::*;
 pub struct DirWrapper {
     pub inner: *mut TSK_FS_DIR,
     pub parent: Rc<FsWrapper>,
+    pub file: Option<File>,
 }
 
 #[derive(Debug, Clone)]

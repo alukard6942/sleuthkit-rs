@@ -5,6 +5,7 @@ pub enum Nullptr {
     FsOpen,
     DirOpen,
     FileOpen,
+    Meta,
 }
 
 use std::ffi::CStr;
@@ -16,8 +17,11 @@ pub enum TskError {
     Nullptr(Nullptr),
     Dynamic(Box<dyn Error>),
     Msg(String),
+    Str(&'static str),
     Cstr(Utf8Error),
 }
+
+impl Error for TskError {}
 
 impl From<Nullptr> for TskError {
     fn from(t: Nullptr) -> Self {
@@ -31,9 +35,9 @@ impl From<String> for TskError {
     }
 }
 
-impl From<&str> for TskError {
-    fn from(t: &str) -> Self {
-        TskError::Msg(t.to_string())
+impl From<&'static str> for TskError {
+    fn from(t: &'static str) -> Self {
+        TskError::Str(t)
     }
 }
 

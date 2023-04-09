@@ -6,12 +6,20 @@
  */
 mod bindings;
 
-mod tests;
-
-pub mod error;
-pub mod fs_info;
-pub mod img_info;
 mod tchar;
-pub mod vs_info;
+
+mod base;
+
+#[cfg(test)]
+pub mod tests;
 
 pub mod entry;
+pub mod error;
+
+mod fs_info;
+mod img_info;
+mod vs_info;
+
+pub use fs_info::FsInfo;
+pub use img_info::ImgInfo;
+pub use vs_info::VsInfo;
