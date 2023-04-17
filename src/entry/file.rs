@@ -4,7 +4,7 @@ use crate::{
     error::{TskError, TskResult},
     fs_info::FsWrapper,
 };
-use std::{ffi::CStr, fmt::Display, rc::Rc, usize};
+use std::{ffi::CStr, fmt::Display, rc::Rc, usize, str::FromStr};
 
 #[derive(Debug)]
 pub struct FileWrapper {
@@ -17,35 +17,56 @@ pub struct File {
     pub parent: Rc<FsWrapper>,
 }
 
+#[derive(Default)]
 pub struct Meta {
-    pub crate_time: i64,
-    pub last_modified_time: i64,
-    pub last_acces_time: i64,
+    pub crate_time: u64,
+    pub last_modified_time: u64,
+    pub last_acces_time: u64,
 }
 
 impl File {
-    pub fn meta(&self) -> TskResult<Meta> {
-        let meta = unsafe {
+    fn metadata(&self) -> TskResult<*const TSK_FS_META> {
+        Ok(unsafe {
             // the field name is type but that happens to be reserved by rust
             let meta = (*self.inner.inner).meta;
             if meta.is_null() {
                 return Err(TskError::Nullptr(crate::error::Nullptr::Meta));
             }
-            *meta
-        };
-
-        Ok(Meta {
-            crate_time: meta.atime,
-            last_modified_time: meta.ctime,
-            last_acces_time: meta.crtime,
+            meta
         })
     }
 
-    pub fn size(&self) -> usize {
-        let meta = unsafe { (*self.inner.inner).meta };
-        if meta.is_null() {
-            return 0;
+    /* unix style rights string
+    *  example: '-rw-rw-r--'
+    * if cant construct will return: '----------'
+    */
+    pub fn rights(&self) -> String {
+        let meta = match self.metadata() {
+            Ok(it) => it,
+            Err(_err) => return "-".repeat(12),
+        };
+        let mut b = Vec::with_capacity(12);
+        unsafe {
+            tsk_fs_meta_make_ls(meta, b.as_mut_ptr() as *mut i8, 12);
+            b.set_len(12);
+            String::from_utf8_unchecked(b)
         }
+    }
+
+    pub fn meta(&self) -> TskResult<Meta> {
+        let meta = self.metadata()?;
+        unsafe { Ok(Meta {
+            crate_time: (*meta).atime as u64,
+            last_modified_time: (*meta).ctime as u64,
+            last_acces_time: (*meta).crtime as u64,
+        })}
+    }
+
+    pub fn size(&self) -> usize {
+        let meta = match self.metadata() {
+            Ok(it) => it,
+            Err(_err) => return 0,
+        };
         let len = unsafe { (*meta).size } as usize;
 
         len
@@ -114,18 +135,14 @@ impl File {
     }
 
     pub fn is_file(&self) -> bool {
-        let meta = unsafe {
-            // the field name is type but that happens to be reserved by rust
-            let meta = (*self.inner.inner).meta;
-            if meta.is_null() {
-                return true;
-            }
-            let typ = (*meta).type_;
-            typ
+        let meta = match self.metadata() {
+            Ok(it) => it,
+            Err(_err) => return true,
         };
+        let typ = unsafe { (*meta).type_ };
 
         // lol no cast from u32 to bool pathetic
-        (meta & TSK_FS_META_TYPE_ENUM_TSK_FS_META_TYPE_DIR) == 0
+        (typ & TSK_FS_META_TYPE_ENUM_TSK_FS_META_TYPE_DIR) == 0
     }
 
     /*

@@ -15,7 +15,6 @@ use std::str::Utf8Error;
 #[derive(Debug)]
 pub enum TskError {
     Nullptr(Nullptr),
-    Dynamic(Box<dyn Error>),
     Msg(String),
     Str(&'static str),
     Cstr(Utf8Error),
@@ -46,6 +45,7 @@ impl From<Utf8Error> for TskError {
         TskError::Cstr(t)
     }
 }
+
 
 impl Display for TskError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
