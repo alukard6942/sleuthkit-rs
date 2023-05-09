@@ -6,6 +6,7 @@ use crate::vs_info::{VsInfo, VsWrapper};
 use std::ffi::CStr;
 use std::fmt::Display;
 use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct ImgWrapper {
@@ -60,7 +61,7 @@ impl ImgInfo {
         }
 
         Ok(FsInfo {
-            inner: Rc::new(FsWrapper {
+            inner: Arc::new(FsWrapper {
                 inner: ptr,
                 parent: Rc::clone(&self.inner),
             }),

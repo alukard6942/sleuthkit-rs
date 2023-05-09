@@ -5,6 +5,7 @@ use crate::img_info::ImgWrapper;
 use crate::tchar::Tchar;
 use std::fmt::Display;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::entry::DirWrapper;
 
@@ -16,7 +17,7 @@ pub struct FsWrapper {
 
 #[derive(Debug)]
 pub struct FsInfo {
-    pub inner: Rc<FsWrapper>,
+    pub inner: Arc<FsWrapper>,
 }
 
 impl FsInfo {

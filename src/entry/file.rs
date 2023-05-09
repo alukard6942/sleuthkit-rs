@@ -4,8 +4,22 @@ use crate::{
     error::{TskError, TskResult},
     fs_info::FsWrapper,
 };
-use std::{ffi::CStr, fmt::Display, rc::Rc, usize, str::FromStr};
+use std::{
+    ffi::CStr,
+    fmt::Display,
+    io::{Error, ErrorKind, Read},
+    rc::Rc,
+    usize, sync::Arc,
+};
 
+
+#[derive(Default)]
+pub struct MetaTime {
+    pub crate_time: u64,
+    pub last_modified_time: u64,
+    pub last_acces_time: u64,
+}
+ 
 #[derive(Debug)]
 pub struct FileWrapper {
     pub inner: *mut TSK_FS_FILE,
@@ -14,17 +28,49 @@ pub struct FileWrapper {
 #[derive(Debug, Clone)]
 pub struct File {
     pub inner: Rc<FileWrapper>,
-    pub parent: Rc<FsWrapper>,
+    pub parent: Arc<FsWrapper>,
+    cursor: usize,
 }
 
-#[derive(Default)]
-pub struct Meta {
-    pub crate_time: u64,
-    pub last_modified_time: u64,
-    pub last_acces_time: u64,
+impl Read for File {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let read = self.read_at(self.cursor, buf)?;
+        self.cursor += read;
+        Ok(read)
+    }
 }
 
 impl File {
+
+    pub fn read_at(&self, offset: usize, buf: &mut [u8] ) -> std::io::Result<usize>{
+        let size = unsafe {
+            let size = tsk_fs_file_read(
+                self.inner.inner,
+                offset as i64,
+                buf.as_mut_ptr() as *mut i8,
+                buf.len(),
+                TSK_FS_FILE_READ_FLAG_ENUM_TSK_FS_FILE_READ_FLAG_NONE,
+            ) as i64;
+
+            if size < 0 {
+                return Err(Error::new(ErrorKind::InvalidInput, "todo: better errors"));
+            }
+            size
+        };
+
+        Ok(size as usize)
+    }
+
+
+
+    pub fn new(file: *mut TSK_FS_FILE, parent: Arc<FsWrapper>) -> Self {
+            File {
+                inner: Rc::new(FileWrapper { inner: file }),
+                parent,
+                cursor: 0,
+            }
+    }
+
     fn metadata(&self) -> TskResult<*const TSK_FS_META> {
         Ok(unsafe {
             // the field name is type but that happens to be reserved by rust
@@ -37,9 +83,9 @@ impl File {
     }
 
     /* unix style rights string
-    *  example: '-rw-rw-r--'
-    * if cant construct will return: '----------'
-    */
+     *  example: '-rw-rw-r--'
+     * if cant construct will return: '----------'
+     */
     pub fn rights(&self) -> String {
         let meta = match self.metadata() {
             Ok(it) => it,
@@ -53,13 +99,16 @@ impl File {
         }
     }
 
-    pub fn meta(&self) -> TskResult<Meta> {
+    // todo: more stuff
+    pub fn meta_time(&self) -> TskResult<MetaTime> {
         let meta = self.metadata()?;
-        unsafe { Ok(Meta {
-            crate_time: (*meta).atime as u64,
-            last_modified_time: (*meta).ctime as u64,
-            last_acces_time: (*meta).crtime as u64,
-        })}
+        unsafe {
+            Ok(MetaTime {
+                crate_time: (*meta).atime as u64,
+                last_modified_time: (*meta).ctime as u64,
+                last_acces_time: (*meta).crtime as u64,
+            })
+        }
     }
 
     pub fn size(&self) -> usize {
@@ -72,52 +121,6 @@ impl File {
         len
     }
 
-    pub fn contents(&self) -> Vec<u8> {
-        let len = self.size();
-        let mut buffer = Vec::with_capacity(len);
-
-        let read = unsafe {
-            tsk_fs_file_read(
-                self.inner.inner,
-                0,
-                buffer.as_mut_ptr() as *mut i8,
-                len,
-                TSK_FS_FILE_READ_FLAG_ENUM_TSK_FS_FILE_READ_FLAG_NOID,
-            )
-        };
-
-        if read == -1 {
-            return Vec::new();
-        }
-
-        unsafe {
-            buffer.set_len(len);
-        }
-
-        buffer
-    }
-
-    // todo: does this makes actualy sence? can this ever return none?
-    pub fn bytes(&self, buffer: &mut Vec<u8>) -> Option<usize> {
-        let size = unsafe {
-            tsk_fs_file_read(
-                self.inner.inner,
-                0,
-                buffer.as_mut_ptr() as *mut i8,
-                buffer.capacity(),
-                TSK_FS_FILE_READ_FLAG_ENUM_TSK_FS_FILE_READ_FLAG_NONE,
-            )
-        };
-        if size < 0 {
-            return None;
-        }
-
-        unsafe {
-            buffer.set_len(size as usize);
-        }
-
-        Some(size as usize)
-    }
 
     pub fn name(&self) -> TskResult<&str> {
         let s = unsafe {
@@ -187,7 +190,7 @@ impl File {
         Some(Dir {
             inner: Rc::new(DirWrapper {
                 inner: f,
-                parent: Rc::clone(&self.parent),
+                parent: self.parent.clone(),
                 file: Some(self.clone()),
             }),
         })
@@ -209,7 +212,7 @@ impl File {
         Some(Dir {
             inner: Rc::new(DirWrapper {
                 inner: f,
-                parent: Rc::clone(&self.parent),
+                parent: self.parent.clone(),
                 file: Some(self.clone()),
             }),
         })

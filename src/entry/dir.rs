@@ -4,6 +4,7 @@ use crate::fs_info::FsWrapper;
 use std::ffi::CStr;
 use std::fmt::Display;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use super::file::{File, FileWrapper};
 use super::helpers::*;
@@ -11,7 +12,7 @@ use super::helpers::*;
 #[derive(Debug, Clone)]
 pub struct DirWrapper {
     pub inner: *mut TSK_FS_DIR,
-    pub parent: Rc<FsWrapper>,
+    pub parent: Arc<FsWrapper>,
     pub file: Option<File>,
 }
 
@@ -60,10 +61,7 @@ impl Dir {
         if file.is_null() {
             None
         } else {
-            Some(File {
-                inner: Rc::new(FileWrapper { inner: file }),
-                parent: Rc::clone(&self.inner.parent),
-            })
+            Some(File::new(file, self.inner.parent.clone()))
         }
     }
 }
