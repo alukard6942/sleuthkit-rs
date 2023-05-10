@@ -2,4 +2,4 @@
 /Cargo.lock
 /bindings.rs
 /sleuthkit
-/src/bindings/bind.rs
+/src/bindings/*
