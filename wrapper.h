@@ -6,3 +6,7 @@
  */
 
 #include <tsk/libtsk.h>
+
+void do_this_one_thing_in_c () {
+  printf("hello word");
+}

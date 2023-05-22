@@ -11,6 +11,9 @@ fn main() {
     let out_path = PathBuf::from("src/bindings");
 
     let bindings = bindgen::Builder::default()
+        .rustified_enum("TSK_IMG_TYPE_ENUM")
+        .rustified_enum("TSK_VS_TYPE_ENUM")
+        .rustified_enum("TSK_FS_TYPE_ENUM")
         .header("wrapper.h")
         .layout_tests(false)
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))

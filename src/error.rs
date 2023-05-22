@@ -8,7 +8,7 @@ pub enum Nullptr {
     Meta,
 }
 
-use std::ffi::CStr;
+use std::ffi::{CStr, CString, NulError};
 use std::fmt::Display;
 use std::str::Utf8Error;
 
@@ -18,9 +18,16 @@ pub enum TskError {
     Msg(String),
     Str(&'static str),
     Cstr(Utf8Error),
+    NullError(NulError),
 }
 
 impl Error for TskError {}
+
+impl From<NulError> for TskError {
+    fn from(t: NulError) -> Self {
+        TskError::NullError(t)
+    }
+}
 
 impl From<Nullptr> for TskError {
     fn from(t: Nullptr) -> Self {

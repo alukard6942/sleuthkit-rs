@@ -1,15 +1,10 @@
 use crate::bindings::*;
-use std::ffi::CStr;
-use std::str;
+use std::ffi::{CStr, CString};
+use std::ops::Deref;
 use std::string::String;
 
+// since &str does not end witch 0, can be converted only from string
 pub struct Tchar(*const TSK_TCHAR);
-
-// #[derive(Debug, Clone)]
-// pub struct Tchar {
-//     pub inner:  *const TSK_TCHAR,
-//     buff: String,
-// }
 
 impl Tchar {
     pub fn is_empty(&self) -> bool {
@@ -17,14 +12,34 @@ impl Tchar {
     }
 }
 
-impl<T: AsRef<str>> From<T> for Tchar {
-    fn from(s: T) -> Tchar {
-        Tchar(s.as_ref().as_ptr() as *const TSK_TCHAR)
+impl Deref for Tchar {
+    type Target = *const TSK_TCHAR;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
+
+pub trait AsTchar{
+    fn as_tchar(&self) -> Tchar;
+}
+
+impl AsTchar for CString {
+    fn as_tchar(&self) -> Tchar {
+        Tchar(self.as_ptr() as *const TSK_TCHAR)
+    }
+}
+
+// impl AsTchar for &CStr {
+//     fn as_tchar(&self) -> Tchar {
+//         Tchar(self.as_ptr() as *const TSK_TCHAR)
+//     }
+// }
+
+
 impl From<Tchar> for String {
     fn from(val: Tchar) -> Self {
-        unsafe { CStr::from_ptr(val.0) }.to_str().unwrap().to_owned()
+        unsafe { CStr::from_ptr(val.0) }.to_str().unwrap().to_string()
     }
 }

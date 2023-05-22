@@ -3,3 +3,5 @@
 /bindings.rs
 /sleuthkit
 /src/bindings/*
+/testData/
+/testData/*

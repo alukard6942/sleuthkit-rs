@@ -1,17 +1,17 @@
-use super::{dir::Dir, DirWrapper};
+use super::dir::Dir;
 use crate::{
     bindings::*,
     error::{TskError, TskResult},
-    fs_info::FsWrapper,
+    fs::fs_info::FsInfo,
 };
 use std::{
     ffi::CStr,
     fmt::Display,
-    io::{Error, ErrorKind, Read},
-    rc::Rc,
-    usize, sync::Arc,
+    io::{Error, ErrorKind},
+    marker::PhantomData,
+    ops::Deref,
+    usize,
 };
-
 
 #[derive(Default)]
 pub struct MetaTime {
@@ -19,37 +19,44 @@ pub struct MetaTime {
     pub last_modified_time: u64,
     pub last_acces_time: u64,
 }
- 
-#[derive(Debug)]
-pub struct FileWrapper {
-    pub inner: *mut TSK_FS_FILE,
-}
 
 #[derive(Debug, Clone)]
-pub struct File {
-    pub inner: Rc<FileWrapper>,
-    pub parent: Arc<FsWrapper>,
-    cursor: usize,
-}
+pub struct File<'a>(*mut TSK_FS_FILE, PhantomData<&'a FsInfo<'a>>);
 
-impl Read for File {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        let read = self.read_at(self.cursor, buf)?;
-        self.cursor += read;
-        Ok(read)
+impl Drop for File<'_> {
+    fn drop(&mut self) {
+        unsafe {
+            tsk_fs_file_close(self.0);
+        }
     }
 }
 
-impl File {
+impl Deref for File<'_> {
+    type Target = *mut TSK_FS_FILE;
 
-    pub fn read_at(&self, offset: usize, buf: &mut [u8] ) -> std::io::Result<usize>{
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'a> File<'a> {
+    pub(crate) fn new(ptr: *mut TSK_FS_FILE) -> File<'a> {
+        File(ptr, PhantomData)
+    }
+
+    pub fn read_at(
+        &self,
+        offset: usize,
+        buf: &mut [u8],
+        flag: TSK_FS_FILE_READ_FLAG_ENUM,
+    ) -> std::io::Result<usize> {
         let size = unsafe {
             let size = tsk_fs_file_read(
-                self.inner.inner,
+                self.0,
                 offset as i64,
                 buf.as_mut_ptr() as *mut i8,
                 buf.len(),
-                TSK_FS_FILE_READ_FLAG_ENUM_TSK_FS_FILE_READ_FLAG_NONE,
+                flag,
             ) as i64;
 
             if size < 0 {
@@ -61,20 +68,36 @@ impl File {
         Ok(size as usize)
     }
 
+    pub fn read_type(
+        &self,
+        atype: TSK_FS_ATTR_TYPE_ENUM,
+        id: u16,
+        offset: usize,
+        buf: &[u8],
+        flag: TSK_FS_FILE_READ_FLAG_ENUM,
+    ) -> TskResult<usize> {
+        let size = unsafe {
+            tsk_fs_file_read_type(
+                self.0,
+                atype,
+                id,
+                offset as i64,
+                buf.as_mut_ptr() as *mut i8,
+                buf.len(),
+                flag,
+            )
+        };
 
-
-    pub fn new(file: *mut TSK_FS_FILE, parent: Arc<FsWrapper>) -> Self {
-            File {
-                inner: Rc::new(FileWrapper { inner: file }),
-                parent,
-                cursor: 0,
-            }
+        if size < 0 {
+            Err("file type")?
+        }
+        Ok(size as usize)
     }
 
-    fn metadata(&self) -> TskResult<*const TSK_FS_META> {
+    pub(crate) fn metadata(&self) -> TskResult<*const TSK_FS_META> {
         Ok(unsafe {
             // the field name is type but that happens to be reserved by rust
-            let meta = (*self.inner.inner).meta;
+            let meta = (*self.0).meta;
             if meta.is_null() {
                 return Err(TskError::Nullptr(crate::error::Nullptr::Meta));
             }
@@ -121,12 +144,10 @@ impl File {
         len
     }
 
-
     pub fn name(&self) -> TskResult<&str> {
         let s = unsafe {
             CStr::from_ptr({
-                let inner = self.inner.inner;
-                let name = (*inner).name;
+                let name = (*self.0).name;
                 if name.is_null() {
                     Err("name is null")?
                 }
@@ -153,7 +174,7 @@ impl File {
      */
     pub fn is_dot(&self) -> bool {
         unsafe {
-            let ptr = (*(*self.inner.inner).name).name;
+            let ptr = (*(*self.0).name).name;
             if ptr.is_null() {
                 return false;
             }
@@ -172,54 +193,9 @@ impl File {
     pub fn is_subdir(&self) -> bool {
         self.is_dir() && !self.is_dot()
     }
-
-    // None for . and ..
-    pub fn to_subdir(&self) -> Option<Dir> {
-        if !self.is_subdir() {
-            return None;
-        }
-
-        let faddr = unsafe { (*(*self.inner.inner).meta).addr };
-
-        let f = unsafe { tsk_fs_dir_open_meta(self.parent.inner, faddr) };
-
-        if f.is_null() {
-            return None;
-        }
-
-        Some(Dir {
-            inner: Rc::new(DirWrapper {
-                inner: f,
-                parent: self.parent.clone(),
-                file: Some(self.clone()),
-            }),
-        })
-    }
-
-    pub fn to_dir(&self) -> Option<Dir> {
-        if !self.is_dir() {
-            return None;
-        }
-
-        let faddr = unsafe { (*(*self.inner.inner).meta).addr };
-
-        let f = unsafe { tsk_fs_dir_open_meta(self.parent.inner, faddr) };
-
-        if f.is_null() {
-            return None;
-        }
-
-        Some(Dir {
-            inner: Rc::new(DirWrapper {
-                inner: f,
-                parent: self.parent.clone(),
-                file: Some(self.clone()),
-            }),
-        })
-    }
 }
 
-impl Display for File {
+impl Display for File<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let m = match self.name() {
             Ok(it) => it,
@@ -230,35 +206,19 @@ impl Display for File {
     }
 }
 
-impl Drop for FileWrapper {
-    fn drop(&mut self) {
-        unsafe {
-            if !self.inner.is_null() {
-                // println!("droping file");
-                tsk_fs_file_close(self.inner);
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use std::string;
-
-    use crate::{entry::Dir, img_info};
+    use crate::{img::img_info::{self, ImgInfo}, bindings::TSK_FS_FILE_READ_FLAG_ENUM_TSK_FS_FILE_READ_FLAG_NONE};
 
     #[test]
     fn todir() {
-        let root = {
-            let img = img_info::tests::new();
-            let fs = img.fs_info().unwrap();
-            let root = fs.root().unwrap();
-            root
-        };
+        let img = img_info::tests::new();
+        let fs = img.fs().unwrap();
+        let root = fs.dir_open_root().unwrap();
 
         for f in &root {
             println!("{:?}", f.name());
-            if let Some(d) = f.to_dir() {
+            if let Some(d) = fs.dir_open_from_file(&f) {
                 println!("{:?}", d.name());
             }
         }
@@ -266,12 +226,9 @@ mod tests {
 
     #[test]
     fn contents_test() {
-        let r = img_info::ImgInfo::new("testData/ntfs.img")
-            .unwrap()
-            .fs_info()
-            .unwrap()
-            .root()
-            .unwrap();
+        let img = ImgInfo::new("testData/ntfs.img".to_string()).unwrap();
+        let fs = img.fs().unwrap();
+        let r = fs.dir_open_root().unwrap();
 
         for f in &r {
             // let c = f.contents();
@@ -282,12 +239,9 @@ mod tests {
 
     #[test]
     pub fn bytestest() {
-        let r = img_info::ImgInfo::new("testData/ntfs.img")
-            .unwrap()
-            .fs_info()
-            .unwrap()
-            .root()
-            .unwrap();
+        let img = ImgInfo::new("testData/ntfs.img".to_string()).unwrap();
+        let fs = img.fs().unwrap();
+        let r = fs.dir_open_root().unwrap();
 
         let file = {
             let mut file = None;
@@ -304,7 +258,7 @@ mod tests {
         println!("file {:?}", file.name());
 
         let mut buffer = Vec::with_capacity(1024);
-        let size = file.bytes(&mut buffer);
+        let size = file.read_at(0, &mut buffer, TSK_FS_FILE_READ_FLAG_ENUM_TSK_FS_FILE_READ_FLAG_NONE);
         println!("size {:?}", size);
 
         let pdfsig = ['%' as u8, 'P' as u8, 'D' as u8, 'F' as u8];

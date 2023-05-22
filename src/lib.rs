@@ -8,7 +8,7 @@ mod bindings;
 
 mod tchar;
 
-mod base;
+mod helpers;
 
 #[cfg(test)]
 pub mod tests;
@@ -16,10 +16,6 @@ pub mod tests;
 pub mod entry;
 pub mod error;
 
-mod fs_info;
-mod img_info;
-mod vs_info;
-
-pub use fs_info::FsInfo;
-pub use img_info::ImgInfo;
-pub use vs_info::VsInfo;
+pub mod fs;
+pub mod img;
+pub mod vs;
