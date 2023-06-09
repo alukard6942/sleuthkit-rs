@@ -1,6 +1,6 @@
 use crate::bindings::*;
 use crate::entry::{Dir, File};
-use crate::error::{Nullptr, TskResult};
+use crate::error::{TskResult, TskError};
 use crate::img::img_info::ImgInfo;
 use crate::tchar::{AsTchar, Tchar};
 use core::marker::PhantomData;
@@ -32,7 +32,7 @@ impl Drop for FsInfo<'_> {
 }
 
 impl<'a> FsInfo<'a> {
-    pub fn new(ptr: *mut TSK_FS_INFO) -> FsInfo<'a> {
+    pub(crate) fn new(ptr: *mut TSK_FS_INFO) -> FsInfo<'a> {
         FsInfo(ptr, PhantomData)
     }
 
@@ -45,31 +45,29 @@ impl<'a> FsInfo<'a> {
             tsk_fs_block_get_flag(self.0, null_mut() as *mut TSK_FS_BLOCK, addr as u64, flags)
         };
         if ptr.is_null() {
-            Err("block_get_flag")?
-        } else {
-            Ok(FsBlock::new(ptr))
+            TskError::get_err()?;
         }
+            Ok(FsBlock::new(ptr))
     }
 
     pub fn block_get(&'a self, addr: usize) -> TskResult<FsBlock<'a>> {
         let ptr = unsafe { tsk_fs_block_get(self.0, null_mut() as *mut TSK_FS_BLOCK, addr as u64) };
         if ptr.is_null() {
-            Err("block_get_flag")?
-        } else {
-            Ok(FsBlock::new(ptr))
+            TskError::get_err()?;
         }
+            Ok(FsBlock::new(ptr))
     }
 
     pub fn dir_open<T: AsRef<str>>(&self, path: T) -> TskResult<Dir> {
         let cs = CString::new(path.as_ref())?;
         let t: Tchar = cs.as_tchar();
         if t.is_empty() {
-            return Err(crate::error::TskError::Str("empty path"));
+            TskError::get_err()?;
         }
         let ptr = unsafe { tsk_fs_dir_open(self.0, *t) };
 
         if ptr.is_null() {
-            Err(Nullptr::DirOpen)?;
+            TskError::get_err()?;
         }
 
         Ok(Dir::new(ptr))
@@ -79,7 +77,7 @@ impl<'a> FsInfo<'a> {
         let ptr = unsafe { tsk_fs_dir_open_meta(self.0, (*self.0).root_inum) };
 
         if ptr.is_null() {
-            Err(Nullptr::DirOpen)?;
+            TskError::get_err()?;
         }
 
         Ok(Dir::new(ptr))
@@ -98,7 +96,7 @@ impl<'a> FsInfo<'a> {
 
     // &File or File? from the doc this is not obvious
     pub fn dir_open_from_file(&self, file: &File) -> Option<Dir> {
-        let addr = unsafe { (*file.metadata().unwrap()).addr };
+        let addr = unsafe { (**file.metadata().unwrap()).addr };
 
         self.dir_open_meta(addr)
     }
@@ -107,12 +105,12 @@ impl<'a> FsInfo<'a> {
         let cs = CString::new(path.as_ref())?;
         let t: Tchar = cs.as_tchar();
         if t.is_empty() {
-            return Err(crate::error::TskError::Str("empty path"));
+            TskError::get_err()?;
         }
         let ptr = unsafe { tsk_fs_file_open(self.0, null_mut(), *t) };
 
         if ptr.is_null() {
-            Err(Nullptr::FileOpen)?;
+            TskError::get_err()?;
         }
 
         Ok(File::new(ptr))
@@ -121,7 +119,7 @@ impl<'a> FsInfo<'a> {
         let cs = CString::new(path.as_ref())?;
         let t: Tchar = cs.as_tchar();
         if t.is_empty() {
-            return Err(crate::error::TskError::Str("empty path"));
+            TskError::get_err()?;
         }
         let ptr = unsafe { tsk_fs_file_open(self.0, *file, *t) };
 
@@ -129,7 +127,7 @@ impl<'a> FsInfo<'a> {
         forget(file);
 
         if ptr.is_null() {
-            Err(Nullptr::FileOpen)?;
+            TskError::get_err()?;
         }
 
         Ok(File::new(ptr))
@@ -138,7 +136,7 @@ impl<'a> FsInfo<'a> {
     pub fn file_open_meta(&self, addr: u64) -> TskResult<File> {
         let ptr = unsafe { tsk_fs_file_open_meta(self.0, null_mut(), addr) };
         if ptr.is_null() {
-            Err(Nullptr::FileOpen)?;
+            TskError::get_err()?;
         }
         Ok(File::new(ptr))
     }
@@ -150,7 +148,7 @@ impl<'a> FsInfo<'a> {
         forget(file);
 
         if ptr.is_null() {
-            Err(Nullptr::FileOpen)?;
+            TskError::get_err()?;
         }
 
         Ok(File::new(ptr))

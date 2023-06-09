@@ -1,6 +1,6 @@
 use super::fs_info::FsInfo;
 use crate::bindings::*;
-use crate::error::TskResult;
+use crate::error::{TskError, TskResult};
 use std::ffi::c_uchar;
 use std::marker::PhantomData;
 
@@ -28,9 +28,8 @@ impl<'a> FsAttr<'a> {
         };
 
         if size < 0 {
-            Err("attr_read_at")?
-        } else {
-            Ok(size as usize)
+            TskError::get_err()?
         }
+        Ok(size as usize)
     }
 }

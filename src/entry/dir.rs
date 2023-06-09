@@ -1,5 +1,5 @@
 use crate::bindings::*;
-use crate::error::TskResult;
+use crate::error::{TskError, TskResult};
 use crate::fs::fs_info::FsInfo;
 use std::ffi::CStr;
 use std::fmt::Display;
@@ -8,7 +8,6 @@ use std::ops::Deref;
 
 use super::file::File;
 use super::helpers::*;
-
 
 #[derive(Debug)]
 pub struct Dir<'a>(*mut TSK_FS_DIR, PhantomData<&'a FsInfo<'a>>);
@@ -29,7 +28,7 @@ impl Deref for Dir<'_> {
 }
 
 impl<'a> Dir<'a> {
-    pub(crate) fn new(ptr: *mut TSK_FS_DIR ) -> Dir<'a> {
+    pub(crate) fn new(ptr: *mut TSK_FS_DIR) -> Dir<'a> {
         Dir(ptr, PhantomData)
     }
 
@@ -50,11 +49,11 @@ impl<'a> Dir<'a> {
             CStr::from_ptr({
                 let inner = (*self.0).fs_file;
                 if inner.is_null() {
-                    Err("fs_file")?
+                    TskError::get_err()?;
                 }
                 let name = (*inner).name;
                 if name.is_null() {
-                    Err("name is null")?
+                    TskError::get_err()?;
                 }
                 (*name).name
             })
@@ -83,7 +82,6 @@ impl<'a> Dir<'a> {
     pub fn nth(&self, i: usize) -> Option<File> {
         self.get(i)
     }
-
 }
 
 impl Display for Dir<'_> {
@@ -97,7 +95,6 @@ impl Display for Dir<'_> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
 
@@ -107,7 +104,6 @@ mod tests {
 
     #[test]
     fn bla() {}
-
 
     #[test]
     fn name_of() {
@@ -127,8 +123,8 @@ mod tests {
         let fs = img.fs().unwrap();
         let root = fs.dir_open_root().unwrap();
 
+        println!("name cannot be infeard becose dir was not open thrue name");
         let name = root.name().unwrap();
-
         assert_eq!(name, ".");
     }
 

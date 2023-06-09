@@ -1,4 +1,4 @@
-use super::dir::Dir;
+use super::{dir::Dir, metadata::MetaData};
 use crate::{
     bindings::*,
     error::{TskError, TskResult},
@@ -68,12 +68,13 @@ impl<'a> File<'a> {
         Ok(size as usize)
     }
 
+    // kinda not sure what this is so good for
     pub fn read_type(
         &self,
         atype: TSK_FS_ATTR_TYPE_ENUM,
         id: u16,
         offset: usize,
-        buf: &[u8],
+        buf: &mut [u8],
         flag: TSK_FS_FILE_READ_FLAG_ENUM,
     ) -> TskResult<usize> {
         let size = unsafe {
@@ -89,47 +90,47 @@ impl<'a> File<'a> {
         };
 
         if size < 0 {
-            Err("file type")?
+            TskError::get_err()?;
         }
         Ok(size as usize)
     }
 
-    pub(crate) fn metadata(&self) -> TskResult<*const TSK_FS_META> {
+    pub fn metadata(&self) -> TskResult<MetaData> {
         Ok(unsafe {
             // the field name is type but that happens to be reserved by rust
             let meta = (*self.0).meta;
             if meta.is_null() {
-                return Err(TskError::Nullptr(crate::error::Nullptr::Meta));
+                TskError::get_err()?;
             }
-            meta
+            MetaData(meta)
         })
     }
 
-    /* unix style rights string
-     *  example: '-rw-rw-r--'
-     * if cant construct will return: '----------'
-     */
-    pub fn rights(&self) -> String {
-        let meta = match self.metadata() {
-            Ok(it) => it,
-            Err(_err) => return "-".repeat(12),
-        };
-        let mut b = Vec::with_capacity(12);
-        unsafe {
-            tsk_fs_meta_make_ls(meta, b.as_mut_ptr() as *mut i8, 12);
-            b.set_len(12);
-            String::from_utf8_unchecked(b)
-        }
-    }
+    // /* unix style rights string
+    //  *  example: '-rw-rw-r--'
+    //  * if cant construct will return: '----------'
+    //  */
+    // pub fn make_ls(&self) -> String {
+    //     let meta = match self.metadata() {
+    //         Ok(it) => it,
+    //         Err(_err) => return "-".repeat(12),
+    //     };
+    //     let mut b = Vec::with_capacity(12);
+    //     unsafe {
+    //         tsk_fs_meta_make_ls(meta, b.as_mut_ptr() as *mut i8, 12);
+    //         b.set_len(12);
+    //         String::from_utf8_unchecked(b)
+    //     }
+    // }
 
     // todo: more stuff
     pub fn meta_time(&self) -> TskResult<MetaTime> {
         let meta = self.metadata()?;
         unsafe {
             Ok(MetaTime {
-                crate_time: (*meta).atime as u64,
-                last_modified_time: (*meta).ctime as u64,
-                last_acces_time: (*meta).crtime as u64,
+                crate_time: (**meta).atime as u64,
+                last_modified_time: (**meta).ctime as u64,
+                last_acces_time: (**meta).crtime as u64,
             })
         }
     }
@@ -139,7 +140,7 @@ impl<'a> File<'a> {
             Ok(it) => it,
             Err(_err) => return 0,
         };
-        let len = unsafe { (*meta).size } as usize;
+        let len = unsafe { (**meta).size } as usize;
 
         len
     }
@@ -149,7 +150,7 @@ impl<'a> File<'a> {
             CStr::from_ptr({
                 let name = (*self.0).name;
                 if name.is_null() {
-                    Err("name is null")?
+                    TskError::get_err()?;
                 }
                 (*name).name
             })
@@ -163,7 +164,7 @@ impl<'a> File<'a> {
             Ok(it) => it,
             Err(_err) => return true,
         };
-        let typ = unsafe { (*meta).type_ };
+        let typ = unsafe { (**meta).type_ };
 
         // lol no cast from u32 to bool pathetic
         (typ & TSK_FS_META_TYPE_ENUM_TSK_FS_META_TYPE_DIR) == 0
@@ -208,7 +209,10 @@ impl Display for File<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{img::img_info::{self, ImgInfo}, bindings::TSK_FS_FILE_READ_FLAG_ENUM_TSK_FS_FILE_READ_FLAG_NONE};
+    use crate::{
+        bindings::TSK_FS_FILE_READ_FLAG_ENUM_TSK_FS_FILE_READ_FLAG_NONE,
+        img::img_info::{self, ImgInfo},
+    };
 
     #[test]
     fn todir() {
@@ -258,7 +262,11 @@ mod tests {
         println!("file {:?}", file.name());
 
         let mut buffer = Vec::with_capacity(1024);
-        let size = file.read_at(0, &mut buffer, TSK_FS_FILE_READ_FLAG_ENUM_TSK_FS_FILE_READ_FLAG_NONE);
+        let size = file.read_at(
+            0,
+            &mut buffer,
+            TSK_FS_FILE_READ_FLAG_ENUM_TSK_FS_FILE_READ_FLAG_NONE,
+        );
         println!("size {:?}", size);
 
         let pdfsig = ['%' as u8, 'P' as u8, 'D' as u8, 'F' as u8];

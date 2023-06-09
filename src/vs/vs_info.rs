@@ -4,6 +4,7 @@ use std::os::unix::prelude::{AsFd, AsRawFd};
 
 use libc::c_char;
 
+use crate::error::TskError;
 use crate::{bindings::*, error::TskResult};
 
 use super::vs_part::VsPart;
@@ -45,10 +46,9 @@ impl<'a> VsInfo<'a> {
             unsafe { tsk_vs_read_block(self.0, addr, buf.as_mut_ptr() as *mut i8, buf.len()) };
 
         if s < 0 {
-            Err(crate::error::TskError::Str("vs read_at"))
-        } else {
+            TskError::get_err()?;
+        } 
             Ok(s as usize)
-        }
     }
 
     pub fn print<T: AsFd>(f: T) {

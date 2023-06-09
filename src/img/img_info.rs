@@ -1,7 +1,7 @@
 use libc::c_char;
 
 use crate::bindings::*;
-use crate::error::{Nullptr, TskError, TskResult};
+use crate::error::{TskError, TskResult};
 use crate::fs::fs_info::FsInfo;
 use crate::tchar::{AsTchar, Tchar};
 use crate::vs::vs_info::VsInfo;
@@ -46,7 +46,7 @@ impl ImgInfo {
 
         let ptr = unsafe { tsk_img_open_sing(*t, TSK_IMG_TYPE_ENUM::TSK_IMG_TYPE_DETECT, 0) };
         if ptr.is_null() {
-            Err(Nullptr::ImgOpen)?;
+            TskError::get_err()?
         }
         Ok(ImgInfo(ptr))
     }
@@ -60,7 +60,7 @@ impl ImgInfo {
         let t: Tchar = cs.as_tchar();
         let ptr = unsafe { tsk_img_open_sing(*t, img_type, ssize as c_uint) };
         if ptr.is_null() {
-            Err(Nullptr::ImgOpen)?;
+            TskError::get_err()?
         }
         Ok(ImgInfo(ptr))
     }
@@ -85,7 +85,7 @@ impl ImgInfo {
             )
         };
         if ptr.is_null() {
-            Err(Nullptr::ImgOpen)?;
+            TskError::get_err()?
         }
         Ok(ImgInfo(ptr))
     }
@@ -101,10 +101,9 @@ impl ImgInfo {
         };
 
         if read < 0 {
-            Err(TskError::Str("read_at"))
-        } else {
-            Ok(read as usize)
+            TskError::get_err()?;
         }
+        Ok(read as usize)
     }
 
     pub fn print<T: AsFd>(f: T) {
@@ -125,7 +124,7 @@ impl ImgInfo {
     pub fn vs<'a>(&'a self) -> TskResult<VsInfo<'a>> {
         let ptr = unsafe { tsk_vs_open(self.0, 0, TSK_VS_TYPE_ENUM::TSK_VS_TYPE_DETECT) };
         if ptr.is_null() {
-            Err(Nullptr::VsOpen)?
+            TskError::get_err()?;
         }
         Ok(VsInfo::new(ptr))
     }
@@ -133,7 +132,7 @@ impl ImgInfo {
     pub fn vs_open<'a>(&'a self, addr: usize, vs_type: TSK_VS_TYPE_ENUM) -> TskResult<VsInfo<'a>> {
         let ptr = unsafe { tsk_vs_open(self.0, addr as TSK_DADDR_T, vs_type) };
         if ptr.is_null() {
-            Err(Nullptr::VsOpen)?
+            TskError::get_err()?;
         }
         Ok(VsInfo::new(ptr))
     }
@@ -142,7 +141,7 @@ impl ImgInfo {
         let ptr = unsafe { tsk_fs_open_img(self.0, 0, TSK_FS_TYPE_ENUM::TSK_FS_TYPE_DETECT) };
 
         if ptr.is_null() {
-            Err(Nullptr::FsOpen)?
+            TskError::get_err()?;
         }
 
         Ok(FsInfo::new(ptr))
@@ -155,7 +154,7 @@ impl ImgInfo {
         let ptr = unsafe { tsk_fs_open_img(self.0, offset as TSK_OFF_T, fs_type) };
 
         if ptr.is_null() {
-            Err(Nullptr::FsOpen)?
+            TskError::get_err()?;
         }
 
         Ok(FsInfo::new(ptr))
@@ -165,8 +164,8 @@ impl ImgInfo {
 #[cfg(test)]
 pub mod tests {
 
-    use std::io;
     use super::*;
+    use std::io;
 
     pub fn new() -> ImgInfo {
         match ImgInfo::new("testData/test.iso") {
@@ -196,7 +195,7 @@ pub mod tests {
     // }
 
     #[test]
-    fn name() {
+    fn name1() {
         println!("{:?}", new());
     }
 }

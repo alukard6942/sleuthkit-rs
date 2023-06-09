@@ -7,8 +7,8 @@ pub struct DirIter<'a> {
     pub parent: &'a Dir<'a>,
 }
 
-impl Iterator for DirIter<'_> {
-    type Item = file::File;
+impl<'a> Iterator for DirIter<'a> {
+    type Item = file::File<'a>;
     fn next(&mut self) -> Option<Self::Item> {
         let e = self.parent.nth(self.count);
         self.count += 1;
@@ -17,7 +17,7 @@ impl Iterator for DirIter<'_> {
 }
 
 impl<'a> IntoIterator for &'a Dir<'_> {
-    type Item = file::File;
+    type Item = file::File<'a>;
 
     type IntoIter = DirIter<'a>;
 

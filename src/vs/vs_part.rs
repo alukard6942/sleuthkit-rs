@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 use std::ops::Deref;
+use crate::error::TskError;
 use crate::img::img_info::ImgInfo;
 use crate::{bindings::*, error::TskResult};
 
@@ -30,10 +31,9 @@ impl<'a> VsPart<'a> {
         };
 
         if s < 0 {
-            Err(crate::error::TskError::Str("vspart read_at"))
-        } else {
+            TskError::get_err()?;
+        } 
             Ok(s as usize)
-        }
     }
 
     pub fn read_block(&self, addr: TSK_DADDR_T, buf: &mut [u8]) -> TskResult<usize> {
@@ -41,9 +41,8 @@ impl<'a> VsPart<'a> {
             unsafe { tsk_vs_part_read_block(self.0, addr, buf.as_mut_ptr() as *mut i8, buf.len()) };
 
         if s < 0 {
-            Err(crate::error::TskError::Str("vspart read_at"))
-        } else {
-            Ok(s as usize)
+            TskError::get_err()?;
         }
+            Ok(s as usize)
     }
 }
