@@ -1,4 +1,4 @@
-use super::{dir::Dir, metadata::MetaData};
+use super::{dir::Dir, MetaData};
 use crate::{
     bindings::*,
     error::{TskError, TskResult},

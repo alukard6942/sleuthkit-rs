@@ -6,8 +6,8 @@
  */
 mod bindings;
 
+mod version;
 mod tchar;
-
 mod helpers;
 
 #[cfg(test)]

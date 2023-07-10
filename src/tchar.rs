@@ -20,7 +20,6 @@ impl Deref for Tchar {
     }
 }
 
-
 pub trait AsTchar{
     fn as_tchar(&self) -> Tchar;
 }
